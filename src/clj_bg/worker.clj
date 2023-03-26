@@ -1,10 +1,9 @@
 (ns clj-bg.workers
   (:require
     [clojure.tools.logging :refer [info debug]]
-
-    [clj-bg.wrapper :refer [wrap-job wrap-task]]
-
-    [monger.operators :refer :all]))
+    
+    [clj-bg.db :as db]
+    [clj-bg.wrapper :refer [wrap-job wrap-task]]))
 
 (defn try-action [attempts timeout fn:action]
   (or
@@ -23,17 +22,17 @@
   (when id
     (debug "Trying to lock worker: " (:id item))
     (when-let
-      [item (mongo/find-and-modify col-name item :state load-state working-state)]
+      [item (db/find-and-modify col-name item :state load-state working-state)]
       (try
         (debug "Worker locked: " (:id item))
-        (mongo/save col-name
+        (db/save col-name
           (-> item
             fn:coerce-item
             fn:process-item
             (assoc
               :updated-at (System/currentTimeMillis))))
         (catch Exception ex
-          (mongo/save col-name
+          (db/save col-name
             (assoc item
               :state :error
               :updated-at (System/currentTimeMillis)))
@@ -70,7 +69,7 @@
 
   (worker-iteration worker-id col-name
     load-state working-state
-    #(mongo/find-first col-name :state load-state)
+    #(db/find-first col-name :state load-state)
     fn:process-item fn:coerce-item))
 
 (defn interval-worker-iteration
@@ -82,7 +81,7 @@
   (worker-iteration worker-id col-name
     load-state working-state
     #(first
-       (mongo/find-all col-name
+       (db/find-all col-name
         {
           :state load-state
           :updated-at
@@ -101,7 +100,7 @@
                :job-state-hanged-alert
                (str "Job hanged (" col-name "):" (:id %))
                worker-id))
-          (mongo/find-all col-name
+          (db/find-all col-name
             {
               :state {$in freeze-states}
               :updated-at {$lt (- (System/currentTimeMillis) interval)}}
@@ -110,7 +109,7 @@
     (recur)))
 
 (defn cleanup-node-simple [col-name node-id freeze-states new-state]
-  (mongo/update-all col-name
+  (db/update-all col-name
     {
       ;TODO Move config logic to separate file
       :node-id (or node-id "default-node")
