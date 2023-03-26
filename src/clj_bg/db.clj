@@ -8,7 +8,19 @@
   (save [this coll rec])
   (updateAll [this coll where-fields update-fields]))
 
-(defn check-filter [v where-fields])
+(defn check-filter [v where-fields]
+  (apply
+    and
+    (mapv
+      (fn [[field condition]]
+        (cond
+          (and (map? condition) (= :in (first condition)))
+
+          (and (map? condition) (= :lt (first condition)))
+
+          :else))
+          
+      where-fields)))
 
 ;Simplified default backend for testing
 (deftype InMemoryDb [a:db]
