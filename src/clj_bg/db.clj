@@ -1,34 +1,34 @@
 (ns clj-bg.db)
 
 (defprotocol DbFacade
-  (find-all [this coll where-fields sort-fields])
-  (find-by-id [this coll id])
-  (find-first [this coll field value])
-  (find-and-modify [this coll doc field expected-value new-value])
+  (findAll [this coll where-fields sort-fields])
+  (findById [this coll id])
+  (findFirst [this coll field value])
+  (findAndModify [this coll doc field expected-value new-value])
   (save [this coll rec])
-  (update-all [this coll where-fields update-fields]))
+  (updateAll [this coll where-fields update-fields]))
 
 (defn check-filter [v where-fields])
 
 ;Simplified default backend for testing
 (deftype InMemoryDb [a:db]
   DbFacade
-  (find-all [this coll where-fields sort-fields]
+  (findAll [this coll where-fields sort-fields]
     (->> @a:db vals
       (filter
         (fn [v]))))
-  (find-by-id [this coll id]
+  (findById [this coll id]
     (get @a:db id))
-  (find-first [this coll field value]
+  (findFirst [this coll field value]
     (->> @a:db vals
       (filter (fn [v] (-> v (get field) (= value))))
       first))
-  (find-and-modify [this coll doc field expected-value new-value]
+  (findAndModify [this coll doc field expected-value new-value]
     (swap! a:db))
 
   (save [this coll rec]
     (swap! a:db assoc (:id rec) rec))
-  (update-all [this coll where-fields update-fields]
+  (updateAll [this coll where-fields update-fields]
     (swap! a:db)))
 
 (def a:db-backend (atom (InMemoryDb. (atom {}))))
